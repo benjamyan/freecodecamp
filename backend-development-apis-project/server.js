@@ -27,40 +27,34 @@ app.get("/api/hello", function (req, res) {
 	res.json({ greeting: 'hello API' });
 });
 app.get("/api/:date?", function (req, res) {
-	if (req.params.date.length > 0) {
-		const DATE = (
-			// standardize the given input to a UNIX date int
-			req.params.date.indexOf('-') > -1 ?
-				Date.parse(req.params.date) :
-				parseInt(req.params.date)
+	const { params } = req;
+	try {
+		const dateAsUnixInt = (
+			/(^\d+$)/gi.test(params.date) ?
+				parseInt(params.date)
+				: Date.parse(params.date)
 		);
-		const isGivenDateIsValid = function () {
-			// check if the DATE var is a valid date format
-			const givenDateIsValid = new Date(DATE) instanceof Date;
-			// check if the DATE parsed is a valid number
-			const dateIsNumber = !isNaN(Date.parse(new Date(DATE)).valueOf());
-			if (givenDateIsValid && dateIsNumber) {
-				return true;
-			}
-			return false;
-		}();
-		if (isGivenDateIsValid) {
-			// if the date can be parsed
-			res.json({
-				"unix": DATE,
-				"utc": new Date(DATE).toUTCString()
-			});
+		if (!isNaN(dateAsUnixInt)) {
+			if (
+				new Date(dateAsUnixInt) instanceof Date &&
+				!isNaN(Date.parse(new Date(dateAsUnixInt)).valueOf())
+			) {
+				res.json({
+					"unix": dateAsUnixInt,
+					"utc": new Date(dateAsUnixInt).toUTCString()
+				});
+			} else throw 'Invalid Date';
 		} else {
-			// if the provided date does not pass the above check
-			// return an error res
-			res.json({ error: "Invalid Date" });
-		};
-	} else {
-		res.json({ 
-			'unix': Date.parse(new Date()),
-			'utc': new Date().toUTCString()
-		});
-	}
+			if (typeof (params.date) !== 'string') {
+				res.json({
+					"unix": Date.parse(new Date()),
+					"utc": new Date().toUTCString()
+				})
+			} else throw 'Invalid Date';
+		}
+	} catch (err) {
+		res.json({ error: "Invalid Date" })
+	};
 });
 /*#endregion*/
 
