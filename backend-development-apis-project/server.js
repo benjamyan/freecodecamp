@@ -1,32 +1,74 @@
-// server.js
-// where your node app starts
+/*#region packages*/
+require('dotenv').config();
+const express = require('express');
+// const bodyParser = require('body-parser');
+const cors = require('cors');
+const app = express();
+/*#endregion*/
 
-// init project
-var express = require('express');
-var app = express();
-
-// enable CORS (https://en.wikipedia.org/wiki/Cross-origin_resource_sharing)
-// so that your API is remotely testable by FCC 
-var cors = require('cors');
-app.use(cors({optionsSuccessStatus: 200}));  // some legacy browsers choke on 204
-
-// http://expressjs.com/en/starter/static-files.html
+/*#region middleware*/
+app.use(
+cors({optionsSuccessStatus: 200})
+);
+// app.use(
+//   bodyParser.json()
+// );
 app.use(express.static('public'));
+/*#endregion*/
 
-// http://expressjs.com/en/starter/basic-routing.html
+/*#region routing*/
 app.get("/", function (req, res) {
-  res.sendFile(__dirname + '/views/index.html');
+	res.sendFile(__dirname + '/views/index.html');
 });
+/*#endregion*/
 
-
-// your first API endpoint... 
+/*#region endpoints*/
 app.get("/api/hello", function (req, res) {
-  res.json({greeting: 'hello API'});
+	res.json({ greeting: 'hello API' });
 });
-
-
-
-// listen for requests :)
-var listener = app.listen(process.env.PORT, function () {
-  console.log('Your app is listening on port ' + listener.address().port);
+app.get("/api/:date?", function (req, res) {
+	if (req.params.date.length > 0) {
+		const DATE = (
+			// standardize the given input to a UNIX date int
+			req.params.date.indexOf('-') > -1 ?
+				Date.parse(req.params.date) :
+				parseInt(req.params.date)
+		);
+		const isGivenDateIsValid = function () {
+			// check if the DATE var is a valid date format
+			const givenDateIsValid = new Date(DATE) instanceof Date;
+			// check if the DATE parsed is a valid number
+			const dateIsNumber = !isNaN(Date.parse(new Date(DATE)).valueOf());
+			if (givenDateIsValid && dateIsNumber) {
+				return true;
+			}
+			return false;
+		}();
+		if (isGivenDateIsValid) {
+			// if the date can be parsed
+			res.json({
+				"unix": DATE,
+				"utc": new Date(DATE).toUTCString()
+			});
+		} else {
+			// if the provided date does not pass the above check
+			// return an error res
+			res.json({ error: "Invalid Date" });
+		};
+	} else {
+		res.json({ 
+			'unix': Date.parse(new Date()),
+			'utc': new Date().toUTCString()
+		});
+	}
 });
+/*#endregion*/
+
+/*#region instanciation*/
+const listener = app.listen(
+	process.env.PORT, 
+	function () {
+		console.log('Your app is listening on port ' + listener.address().port);
+	}
+);
+/*#endregion*/
