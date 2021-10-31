@@ -89,7 +89,10 @@ const mongo = {
 app.get('/', function(req, res) {
   res.sendFile(process.cwd() + '/views/index.html');
 });
-app.get('/api/shorturl/:url?', function(req, res){
+/*#endregion*/
+
+/*#region -- api */
+app.get('/api/shorturl/:url?', function (req, res) {
 	Url.findOne({ shortened_url: req.params.url })
 		.then(
 			data => res.redirect(data.original_url)
@@ -98,9 +101,6 @@ app.get('/api/shorturl/:url?', function(req, res){
 			err => console.log(err)
 		);
 });
-/*#endregion*/
-
-/*#region -- api */
 app.post('/api/shorturl', async function(req, res) {
 	const { body } = req;
 	let shortenedUrl;
