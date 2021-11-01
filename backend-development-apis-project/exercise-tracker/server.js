@@ -197,28 +197,47 @@ app.post('/api/users', function(req,res) {
 	}
 })
 app.post('/api/users/:_id/exercises', async function (req, res) {
-  /**
-   * _id
-   * description *
-   * duration * = minute length
-   * date = yyyy mm dd
-   */
+	/**
+	 * _id
+	 * description *
+	 * duration * = minute length
+	 * date = yyyy mm dd
+	 */
 	try {
 		const { body, params } = req;
 		const userById = await User.findOne({ _id: params._id });
-		const NewExercise = new Exercise({
+		const getDateWtfWhyWhyWhy = (givenDate)=> {
+			/*
+			idk why i needed to do this
+			this fixed local dev problems with timezones
+			*
+			FCC is sending over a GMT date, and asking for a specific formatting
+			Converting it using toDateString() converts it over to UTC, and then formats the string
+			by adding 24 hours when given a date, its correct.
+			*/
+			if (!!givenDate) {
+				const parsedDate = Date.parse(new Date(givenDate));
+				return new Date(parsedDate + 86400000).toDateString()
+			}
+			return new Date().toDateString()
+		}
+		const exerciseObj = {
 			username: userById.username,
 			description: body.description || '',
-			duration: body.duration || 0,
+			duration: parseInt(body.duration) || 0,
 			date: (
-				body.date ?
-					new Date(body.date).toDateString()
+				!!body.date ? 
+					new Date(body.date).toDateString() 
 					: new Date().toDateString()
 			)
-		});
+		}
+		const NewExercise = new Exercise({ ...exerciseObj });
 		NewExercise.save()
-			.then(data => {
-				res.json({ ...data })
+			.then( ()=> {
+				res.json({
+					...exerciseObj,
+					_id: userById._id.toString(),
+				})
 			})
 			.catch(
 				err => console.log(err)
