@@ -30,14 +30,6 @@ const userSchema = new mongoose.Schema({
 		type: String,
 		required: true
 	},
-	count: {
-		type: Number,
-		default: 0
-	},
-	log: {
-		type: [Object],
-		required: true
-	},
 	created: {
 		type: String,
 		default: new Date().toLocaleString()
@@ -47,18 +39,22 @@ const User = mongoose.model(
 	'User', userSchema
 );
 const exerciseSchema = new mongoose.Schema({
-  description: {
-    type: String,
-    required: true
-  },
-  duration: {
-    type: Number,
-    required: true
-  },
-  date: {
-    type: Date,
-    default: new Date().toLocaleString()
-  }
+	username: {
+		type: String,
+		required: true
+	},
+	description: {
+		type: String,
+		required: true
+	},
+	duration: {
+		type: Number,
+		required: true
+	},
+	date: {
+		type: String,
+		required: true
+	}
 });
 const Exercise = mongoose.model(
   'Exercise', exerciseSchema
@@ -69,7 +65,8 @@ const Exercise = mongoose.model(
 // 		required: true
 // 	},
 // 	count: {
-// 		type: Number
+// 		type: Number,
+// 		default: 0
 // 	},
 // 	log: {
 // 		type: [ Object ],
@@ -92,24 +89,76 @@ app.get('/api/users', function (req, res) {
 	/**
 	 * return array of all users
 	 */
-	User.find()
-		.then(data=>{
-			res.json(data)
-			return;
-		})
-		.catch(err=>{
-			console.log(err)
-			res.sendStatus(204)
-			return;
-		});
+	try {
+		User.find()
+			.select('username _id')
+			.exec(function (err, data) {
+				if (err) console.log(err)
+				res.json(data)
+			})
+	} catch (err) {
+		console.log(err)
+		res.sendStatus(204)
+	}
+	return
 })
-app.get('/api/users/:_id/logs?[from][&to][&limit]', function (req, res) {
+app.get('/api/users/:_id/logs', async function (req, res) {
 	/**
 	 * [] = optional
 	 * from, to = dates (yyyy-mm-dd);
 	 * limit = number
 	 */
-	console.log(req.params)
+	try {
+		const { query, params } = req;
+		if (!!params._id) {
+			const userById = await User.findOne({ _id: params._id });
+			const allExercises = await Exercise.find(
+				{ username: userById.username }
+			);
+			const filterExerciseByDates = (exercise) => {
+				const exerciseDateAsUnix = Date.parse(new Date(exercise.date));
+				if (query.from) {
+					const fromDateAsUnix = Date.parse(new Date(query.from).toDateString())
+					if (exerciseDateAsUnix < fromDateAsUnix) {
+						return false
+					}
+				}
+				if (query.to) {
+					const toDateAsUnix = Date.parse(new Date(query.to).toDateString())
+					if (exerciseDateAsUnix > toDateAsUnix) {
+						return false
+					}
+				}
+				return exercise
+			};
+			if (Object.entries(query).length > 0) {
+				console.log('\n')
+				let exercisesAfterQueryFilter = 
+					allExercises.map(
+						(exercise) => filterExerciseByDates(exercise)
+					).filter(Boolean);
+				if (query.limit) {
+					const limit = parseInt(query.limit);
+					exercisesAfterQueryFilter = exercisesAfterQueryFilter.slice(0, limit)
+				}
+				res.json({
+					...userById,
+					count: exercisesAfterQueryFilter.length,
+					log: exercisesAfterQueryFilter
+				})
+			} else {
+				res.json({
+					...userById,
+					count: allExercises.length,
+					log: allExercises
+				})
+			}
+		} else throw 'no id provided';
+	} catch (err) {
+		console.log(err)
+		res.sendStatus(204)
+	}
+	return
 })
 app.post('/api/users', function(req,res) {
 	/**
@@ -156,43 +205,31 @@ app.post('/api/users/:_id/exercises', async function (req, res) {
    */
 	try {
 		const { body, params } = req;
-		const NewExercise = {
+		const userById = await User.findOne({ _id: params._id });
+		const NewExercise = new Exercise({
+			username: userById.username,
 			description: body.description || '',
 			duration: body.duration || 0,
-			date: body.date || new Date()
-		};
-		console.log('\n')
-		const updatedUser = await User.findByIdAndUpdate(
-			params._id, 
-			{ log:[NewExercise], count:+1 },
-			// function(err, data) {
-			// 	if (err) {
-			// 		console.log(err);
-			// 		res.sendStatus(204)
-			// 		return;
-			// 	} else {
-			// 		res.json(data)
-			// 		return;
-			// 	}
-			// }
-		)
-			// .then(async data => {
-			// 	if (data !== null) {
-			// 		console.log(data)
-			// 		res.json(data)
-			// 	} else {
-			// 		res.sendStatus(204)
-			// 	}
-			// });
-		console.log(updatedUser)
-		res.json({ ...updatedUser })
-		return;
+			date: (
+				body.date ?
+					new Date(body.date).toDateString()
+					: new Date().toDateString()
+			)
+		});
+		NewExercise.save()
+			.then(data => {
+				res.json({ ...data })
+			})
+			.catch(
+				err => console.log(err)
+			);
+		return
 	} catch (err) {
 		console.log(err)
 		res.json({
 			error: 'unknown error'
 		})
-		return;
+		return
 	}
 })
 /*#endregion*/
